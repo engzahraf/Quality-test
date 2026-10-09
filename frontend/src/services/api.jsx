@@ -1,6 +1,43 @@
 const API_BASE = 'http://localhost:5000/api';
 export const BASE_URL = 'http://localhost:5000';
 
+export const SUPPORTED_CURRENCIES = [
+  { code: 'USD', symbol: '$', label: 'USD ($)' },
+  { code: 'LKR', symbol: 'Rs.', label: 'LKR (Rs.)' },
+  { code: 'EUR', symbol: '€', label: 'EUR (€)' },
+  { code: 'GBP', symbol: '£', label: 'GBP (£)' },
+  { code: 'JPY', symbol: '¥', label: 'JPY (¥)' },
+  { code: 'SGD', symbol: 'S$', label: 'SGD (S$)' },
+  { code: 'INR', symbol: '₹', label: 'INR (₹)' },
+  { code: 'AUD', symbol: 'A$', label: 'AUD (A$)' },
+  { code: 'CAD', symbol: 'C$', label: 'CAD (C$)' }
+];
+
+export const getCurrencySymbol = (currency = 'USD') => {
+  switch (currency) {
+    case 'LKR':
+      return 'Rs.';
+    case 'USD':
+      return '$';
+    case 'EUR':
+      return '€';
+    case 'GBP':
+      return '£';
+    case 'JPY':
+      return '¥';
+    case 'SGD':
+      return 'S$';
+    case 'INR':
+      return '₹';
+    case 'AUD':
+      return 'A$';
+    case 'CAD':
+      return 'C$';
+    default:
+      return currency || '$';
+  }
+};
+
 export const formatCurrency = (amount, currency = 'USD') => {
   const val = Number(amount || 0);
   const formattedVal = val.toLocaleString(undefined, {

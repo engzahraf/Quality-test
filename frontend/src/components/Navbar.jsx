@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { apiRequest, BASE_URL } from '../services/api';
+import RealTimeWidget from './RealTimeWidget';
 import {
   Compass, Map, Heart, Users, Shield, Bell, LogOut,
-  User, CheckCheck, Menu, X, PlusCircle, Sun, Moon
+  User, CheckCheck, Menu, X, PlusCircle, Sun, Moon,
+  Plane, CalendarDays
 } from 'lucide-react';
 
 export default function Navbar({ currentView, setCurrentView, onOpenCreateTrip }) {
@@ -13,8 +15,10 @@ export default function Navbar({ currentView, setCurrentView, onOpenCreateTrip }
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const notifRef = useRef(null);
+  const calendarRef = useRef(null);
 
   const fetchNotifications = async () => {
     try {
@@ -40,6 +44,9 @@ export default function Navbar({ currentView, setCurrentView, onOpenCreateTrip }
     const handleClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
         setShowNotifMenu(false);
+      }
+      if (calendarRef.current && !calendarRef.current.contains(e.target)) {
+        setShowCalendar(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -101,7 +108,7 @@ export default function Navbar({ currentView, setCurrentView, onOpenCreateTrip }
       <div className="site-nav-inner">
         <div className="brand" onClick={() => goTo('dashboard')}>
           <div className="brand-mark">
-            <Compass color="#fff" size={24} />
+            <Plane color="#fff" size={22} style={{ transform: 'rotate(-45deg)' }} />
           </div>
           <div>
             <div className="brand-title">TRAVAL</div>
@@ -132,6 +139,32 @@ export default function Navbar({ currentView, setCurrentView, onOpenCreateTrip }
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+
+          {/* Calendar toggle */}
+          <div style={{ position: 'relative' }} ref={calendarRef}>
+            <button
+              type="button"
+              className={`theme-toggle${showCalendar ? ' active' : ''}`}
+              onClick={() => setShowCalendar(prev => !prev)}
+              title="Open calendar"
+              aria-label="Open calendar"
+            >
+              <CalendarDays size={18} />
+            </button>
+
+            {showCalendar && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 12px)',
+                right: 0,
+                zIndex: 9999,
+                minWidth: '340px',
+                animation: 'fadeSlideDown 0.22s ease'
+              }}>
+                <RealTimeWidget />
+              </div>
+            )}
+          </div>
 
           <div style={{ position: 'relative' }} ref={notifRef}>
             <button

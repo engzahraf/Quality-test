@@ -1,19 +1,7 @@
-import React, { useState } from 'react';
-import { apiRequest } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { apiRequest, SUPPORTED_CURRENCIES } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { X, Calendar, Globe, DollarSign, Users, Image as ImageIcon } from 'lucide-react';
-
-const SUPPORTED_CURRENCIES = [
-  { code: 'USD', symbol: '$', label: 'USD - $' },
-  { code: 'LKR', symbol: 'Rs.', label: 'LKR - Rs.' },
-  { code: 'EUR', symbol: '€', label: 'EUR - €' },
-  { code: 'GBP', symbol: '£', label: 'GBP - £' },
-  { code: 'JPY', symbol: '¥', label: 'JPY - ¥' },
-  { code: 'SGD', symbol: 'S$', label: 'SGD - S$' },
-  { code: 'INR', symbol: '₹', label: 'INR - ₹' },
-  { code: 'AUD', symbol: 'A$', label: 'AUD - A$' },
-  { code: 'CAD', symbol: 'C$', label: 'CAD - C$' }
-];
 
 export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
   const { addToast } = useToast();
@@ -29,6 +17,12 @@ export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
     currency: 'USD',
     cover: null
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -92,8 +86,13 @@ export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="glass-panel modal-panel">
+    <div
+      className="modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="glass-panel modal-panel" onClick={(e) => e.stopPropagation()}>
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -226,7 +225,18 @@ export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
             <div>
               <label className="field-label">Budget</label>
               <div style={{ position: 'relative' }}>
-                <DollarSign size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-dim)' }} />
+                <span style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--link)',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  pointerEvents: 'none'
+                }}>
+                  {SUPPORTED_CURRENCIES.find(c => c.code === formData.currency)?.symbol || '$'}
+                </span>
                 <input
                   type="number"
                   step="0.01"
@@ -234,7 +244,7 @@ export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
                   value={formData.budget}
                   onChange={e => setFormData({ ...formData, budget: e.target.value })}
                   className="glass-input"
-                  style={{ paddingLeft: '38px' }}
+                  style={{ paddingLeft: (SUPPORTED_CURRENCIES.find(c => c.code === formData.currency)?.symbol?.length > 2 ? '42px' : '32px') }}
                 />
               </div>
             </div>

@@ -3,25 +3,36 @@ const db = require('../config/db');
 // Helper to check ownership of trip containing this day or destination
 const verifyTripOwnershipByDayId = async (dayId, userId) => {
   const [rows] = await db.execute(
-    `SELECT t.id, t.user_id FROM trips t 
+    `SELECT t.id, t.user_id, t.status FROM trips t 
      JOIN trip_days td ON td.trip_id = t.id 
      WHERE td.id = ?`,
     [dayId]
   );
   if (rows.length === 0) return { exists: false };
-  return { exists: true, isOwner: rows[0].user_id === userId, tripId: rows[0].id };
+  return {
+    exists: true,
+    isOwner: rows[0].user_id === userId,
+    tripId: rows[0].id,
+    tripStatus: rows[0].status
+  };
 };
 
 const verifyTripOwnershipByDestId = async (destId, userId) => {
   const [rows] = await db.execute(
-    `SELECT t.id, t.user_id, d.day_id FROM trips t 
+    `SELECT t.id, t.user_id, t.status, d.day_id FROM trips t 
      JOIN trip_days td ON td.trip_id = t.id 
      JOIN destinations d ON d.day_id = td.id
      WHERE d.id = ?`,
     [destId]
   );
   if (rows.length === 0) return { exists: false };
-  return { exists: true, isOwner: rows[0].user_id === userId, tripId: rows[0].id, dayId: rows[0].day_id };
+  return { 
+    exists: true, 
+    isOwner: rows[0].user_id === userId, 
+    tripId: rows[0].id, 
+    dayId: rows[0].day_id,
+    tripStatus: rows[0].status
+  };
 };
 
 // PUT /api/days/:id
@@ -65,6 +76,13 @@ exports.addDestination = async (req, res, next) => {
     if (!check.exists) return res.status(404).json({ success: false, message: 'Day not found.' });
     if (!check.isOwner && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Only the trip owner can add destinations.' });
+    }
+
+    if (check.tripStatus === 'COMPLETED') {
+      return res.status(400).json({
+        success: false,
+        message: 'This trip is completed. You cannot add new destinations to a completed trip.'
+      });
     }
 
     // Get current max order index
@@ -115,7 +133,24 @@ exports.addDestination = async (req, res, next) => {
 exports.updateDestination = async (req, res, next) => {
   try {
     const destId = req.params.id;
-    const { name, description, plannedTime, location, estimatedCost, actualCost, status, orderIndex } = req.body;
+
+    // Helper: convert undefined / empty-string to null so MySQL never sees `undefined`
+    const toNull = (v) => (v === undefined || v === '') ? null : v;
+
+    const name          = toNull(req.body.name);
+    const description   = toNull(req.body.description);
+    const plannedTime   = toNull(req.body.plannedTime);
+    const location      = toNull(req.body.location);
+    const estimatedCost = req.body.estimatedCost !== undefined && req.body.estimatedCost !== ''
+                            ? parseFloat(req.body.estimatedCost)
+                            : null;
+    const actualCost    = req.body.actualCost !== undefined && req.body.actualCost !== ''
+                            ? parseFloat(req.body.actualCost)
+                            : null;
+    const status        = toNull(req.body.status);
+    const orderIndex    = req.body.orderIndex !== undefined && req.body.orderIndex !== ''
+                            ? parseInt(req.body.orderIndex, 10)
+                            : null;
 
     const check = await verifyTripOwnershipByDestId(destId, req.user.id);
     if (!check.exists) return res.status(404).json({ success: false, message: 'Destination not found.' });
@@ -125,19 +160,56 @@ exports.updateDestination = async (req, res, next) => {
 
     await db.execute(
       `UPDATE destinations SET
-         name = COALESCE(?, name),
-         description = COALESCE(?, description),
-         planned_time = COALESCE(?, planned_time),
-         location = COALESCE(?, location),
+         name          = COALESCE(?, name),
+         description   = COALESCE(?, description),
+         planned_time  = COALESCE(?, planned_time),
+         location      = COALESCE(?, location),
          estimated_cost = COALESCE(?, estimated_cost),
-         actual_cost = COALESCE(?, actual_cost),
-         status = COALESCE(?, status),
-         order_index = COALESCE(?, order_index)
+         actual_cost   = COALESCE(?, actual_cost),
+         status        = COALESCE(?, status),
+         order_index   = COALESCE(?, order_index)
        WHERE id = ?`,
       [name, description, plannedTime, location, estimatedCost, actualCost, status, orderIndex, destId]
     );
 
     res.json({ success: true, message: 'Destination updated.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/destinations/:id/image
+exports.uploadDestinationImage = async (req, res, next) => {
+  try {
+    const destId = req.params.id;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please select an image file to upload.' });
+    }
+
+    const check = await verifyTripOwnershipByDestId(destId, req.user.id);
+    if (!check.exists) {
+      return res.status(404).json({ success: false, message: 'Destination not found.' });
+    }
+    if (!check.isOwner && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Only the trip owner can upload destination images.' });
+    }
+    if (check.tripStatus === 'COMPLETED') {
+      return res.status(400).json({ success: false, message: 'Cannot upload images for a completed trip.' });
+    }
+
+    const imageUrl = `/uploads/destinations/${req.file.filename}`;
+
+    await db.execute(
+      'UPDATE destinations SET image_url = ? WHERE id = ?',
+      [imageUrl, destId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Destination image uploaded successfully.',
+      imageUrl
+    });
   } catch (err) {
     next(err);
   }

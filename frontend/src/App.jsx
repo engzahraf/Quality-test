@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import AnimatedPage from './components/AnimatedPage';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import MyTrips from './pages/MyTrips';
@@ -56,42 +57,44 @@ export default function App() {
       />
 
       <main style={{ flex: 1, paddingBottom: '60px' }}>
-        {currentView === 'dashboard' && (
-          <Dashboard
-            onOpenCreateTrip={() => setCreateTripOpen(true)}
-            onSelectTrip={handleSelectTrip}
-          />
-        )}
+        <AnimatedPage pageKey={currentView}>
+          {currentView === 'dashboard' && (
+            <Dashboard
+              onOpenCreateTrip={() => setCreateTripOpen(true)}
+              onSelectTrip={handleSelectTrip}
+            />
+          )}
 
-        {currentView === 'my-trips' && (
-          <MyTrips
-            onOpenCreateTrip={() => setCreateTripOpen(true)}
-            onSelectTrip={handleSelectTrip}
-          />
-        )}
+          {currentView === 'my-trips' && (
+            <MyTrips
+              onOpenCreateTrip={() => setCreateTripOpen(true)}
+              onSelectTrip={handleSelectTrip}
+            />
+          )}
 
-        {currentView === 'trip-detail' && selectedTripId && (
-          <TripDetailPage
-            tripId={selectedTripId}
-            onBack={() => setCurrentView('my-trips')}
-          />
-        )}
+          {currentView === 'trip-detail' && selectedTripId && (
+            <TripDetailPage
+              tripId={selectedTripId}
+              onBack={() => setCurrentView('my-trips')}
+            />
+          )}
 
-        {currentView === 'shared-with-me' && (
-          <SharedWithMe onSelectTrip={handleSelectTrip} />
-        )}
+          {currentView === 'shared-with-me' && (
+            <SharedWithMe onSelectTrip={handleSelectTrip} />
+          )}
 
-        {currentView === 'memories' && (
-          <MemoriesGallery />
-        )}
+          {currentView === 'memories' && (
+            <MemoriesGallery />
+          )}
 
-        {currentView === 'profile' && (
-          <ProfilePage />
-        )}
+          {currentView === 'profile' && (
+            <ProfilePage />
+          )}
 
-        {currentView === 'admin' && user?.role === 'ADMIN' && (
-          <AdminDashboard />
-        )}
+          {currentView === 'admin' && user?.role === 'ADMIN' && (
+            <AdminDashboard />
+          )}
+        </AnimatedPage>
       </main>
 
       <CreateTripModal
