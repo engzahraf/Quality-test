@@ -1,12 +1,222 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { apiRequest, SUPPORTED_CURRENCIES } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { X, Calendar, Globe, DollarSign, Users, Image as ImageIcon } from 'lucide-react';
+import { X, Calendar, Globe, DollarSign, Users, Image as ImageIcon, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
+// ── Mini Calendar Preview Component ──────────────────────────────────────────
+function MiniCalendarPreview({ startDate, endDate, onClose }) {
+  const start = startDate ? new Date(startDate + 'T00:00:00') : null;
+  const end = endDate ? new Date(endDate + 'T00:00:00') : null;
+
+  // Determine initial month to show
+  const initMonth = start || new Date();
+  const [viewYear, setViewYear] = useState(initMonth.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initMonth.getMonth());
+
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+
+  // Build calendar days grid
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const getDayStatus = (day) => {
+    if (!day) return 'empty';
+    const cellDate = new Date(viewYear, viewMonth, day);
+    if (start && end) {
+      if (cellDate.getTime() === start.getTime() && cellDate.getTime() === end.getTime()) return 'single';
+      if (cellDate.getTime() === start.getTime()) return 'start';
+      if (cellDate.getTime() === end.getTime()) return 'end';
+      if (cellDate > start && cellDate < end) return 'between';
+    } else if (start && cellDate.getTime() === start.getTime()) return 'start';
+    else if (end && cellDate.getTime() === end.getTime()) return 'end';
+    return 'normal';
+  };
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dayCount = start && end ? Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1 : null;
+
+  return (
+    <div style={{
+      marginTop: '12px',
+      borderRadius: '16px',
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      padding: '16px',
+      animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <button
+          type="button"
+          onClick={prevMonth}
+          style={{
+            background: 'rgba(255,255,255,0.08)',
+            border: 'none',
+            borderRadius: '8px',
+            width: '30px',
+            height: '30px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--text-main)',
+            transition: 'background 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+        >
+          <ChevronLeft size={14} />
+        </button>
+        <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>
+          {monthNames[viewMonth]} {viewYear}
+        </span>
+        <button
+          type="button"
+          onClick={nextMonth}
+          style={{
+            background: 'rgba(255,255,255,0.08)',
+            border: 'none',
+            borderRadius: '8px',
+            width: '30px',
+            height: '30px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--text-main)',
+            transition: 'background 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      {/* Day of week headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '4px' }}>
+        {daysOfWeek.map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', padding: '4px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+        {cells.map((day, i) => {
+          const status = getDayStatus(day);
+          const isToday = day && new Date(viewYear, viewMonth, day).getTime() === today.getTime();
+
+          let bg = 'transparent';
+          let color = 'var(--text-muted)';
+          let borderRadius = '8px';
+          let fontWeight = 400;
+
+          if (status === 'start' || status === 'single') {
+            bg = 'linear-gradient(135deg, #6366F1, #8B5CF6)';
+            color = '#fff';
+            fontWeight = 700;
+            borderRadius = status === 'single' ? '8px' : '8px 0 0 8px';
+          } else if (status === 'end') {
+            bg = 'linear-gradient(135deg, #8B5CF6, #EC4899)';
+            color = '#fff';
+            fontWeight = 700;
+            borderRadius = '0 8px 8px 0';
+          } else if (status === 'between') {
+            bg = 'rgba(99,102,241,0.18)';
+            color = '#A5B4FC';
+            borderRadius = '0';
+            fontWeight = 500;
+          } else if (isToday) {
+            color = '#60A5FA';
+            fontWeight = 700;
+          }
+
+          return (
+            <div
+              key={i}
+              style={{
+                textAlign: 'center',
+                padding: '5px 2px',
+                fontSize: '12px',
+                background: bg,
+                color,
+                borderRadius,
+                fontWeight,
+                minHeight: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                boxShadow: (status === 'start' || status === 'end' || status === 'single') ? '0 2px 8px rgba(99,102,241,0.35)' : 'none'
+              }}
+            >
+              {day || ''}
+              {isToday && status === 'normal' && (
+                <span style={{
+                  position: 'absolute',
+                  bottom: '2px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '4px',
+                  height: '4px',
+                  borderRadius: '50%',
+                  background: '#60A5FA'
+                }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+        {start && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: 'var(--text-muted)' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'inline-block' }} />
+            Start: {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </div>
+        )}
+        {end && end.getTime() !== start?.getTime() && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: 'var(--text-muted)' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(135deg,#8B5CF6,#EC4899)', display: 'inline-block' }} />
+            End: {end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </div>
+        )}
+        {dayCount && (
+          <div style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 700, color: '#A5B4FC', background: 'rgba(99,102,241,0.15)', padding: '2px 8px', borderRadius: '20px' }}>
+            {dayCount} day{dayCount !== 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Modal ────────────────────────────────────────────────────────────────
 export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [coverPreview, setCoverPreview] = useState(null);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     country: '',
@@ -17,12 +227,6 @@ export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
     currency: 'USD',
     cover: null
   });
-
-  useEffect(() => {
-    if (isOpen) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -138,7 +342,7 @@ export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
             </div>
           </div>
 
-          {/* Trip Name & Country (Strict Spec: NO separate "Main Destination" field) */}
+          {/* Trip Name & Country */}
           <div className="grid-2">
             <div>
               <label className="field-label">Trip Name *</label>
@@ -168,36 +372,72 @@ export default function CreateTripModal({ isOpen, onClose, onTripCreated }) {
             </div>
           </div>
 
-          {/* Dates & Auto Duration */}
-          <div className="grid-2">
-            <div>
-              <label className="field-label">Start Date *</label>
-              <div style={{ position: 'relative' }}>
-                <Calendar size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-dim)' }} />
-                <input
-                  type="date"
-                  value={formData.startDate}
-                  onChange={e => setFormData({ ...formData, startDate: e.target.value })}
-                  required
-                  className="glass-input"
-                  style={{ paddingLeft: '38px' }}
-                />
+          {/* Dates & Calendar Preview */}
+          <div>
+            <div className="grid-2">
+              <div>
+                <label className="field-label">Start Date *</label>
+                <div style={{ position: 'relative' }}>
+                  <Calendar size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-dim)' }} />
+                  <input
+                    type="date"
+                    value={formData.startDate}
+                    onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                    required
+                    className="glass-input"
+                    style={{ paddingLeft: '38px' }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="field-label">End Date *</label>
+                <div style={{ position: 'relative' }}>
+                  <Calendar size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-dim)' }} />
+                  <input
+                    type="date"
+                    value={formData.endDate}
+                    onChange={e => setFormData({ ...formData, endDate: e.target.value })}
+                    required
+                    className="glass-input"
+                    style={{ paddingLeft: '38px' }}
+                  />
+                </div>
               </div>
             </div>
-            <div>
-              <label className="field-label">End Date *</label>
-              <div style={{ position: 'relative' }}>
-                <Calendar size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-dim)' }} />
-                <input
-                  type="date"
-                  value={formData.endDate}
-                  onChange={e => setFormData({ ...formData, endDate: e.target.value })}
-                  required
-                  className="glass-input"
-                  style={{ paddingLeft: '38px' }}
-                />
-              </div>
-            </div>
+
+            {/* Calendar Preview Toggle */}
+            {(formData.startDate || formData.endDate) && (
+              <button
+                type="button"
+                onClick={() => setShowCalendar(v => !v)}
+                style={{
+                  marginTop: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: showCalendar ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${showCalendar ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: showCalendar ? '#A5B4FC' : 'var(--text-muted)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {showCalendar ? <EyeOff size={13} /> : <Eye size={13} />}
+                {showCalendar ? 'Hide Calendar Preview' : 'Preview Calendar 📅'}
+              </button>
+            )}
+
+            {/* Calendar Preview Panel */}
+            {showCalendar && (
+              <MiniCalendarPreview
+                startDate={formData.startDate}
+                endDate={formData.endDate}
+              />
+            )}
           </div>
 
           {/* Duration Badge Banner */}

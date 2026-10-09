@@ -22,9 +22,7 @@ export default function AnimatedPage({ pageKey, children }) {
     <div
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0) scale(1)' : 'translateY(18px) scale(0.985)',
-        transition: 'opacity 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)',
-        willChange: 'opacity, transform',
+        transition: 'opacity 0.38s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       {children}

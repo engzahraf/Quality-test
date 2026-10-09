@@ -1,3 +1,4 @@
+import ModalPortal from '../components/ModalPortal';
 import React, { useState, useEffect } from 'react';
 import { apiRequest, BASE_URL, formatCurrency } from '../services/api';
 import { useToast } from '../context/ToastContext';
@@ -268,14 +269,9 @@ export default function MyTrips({ onOpenCreateTrip, onSelectTrip }) {
 
       {/* ─── Delete Confirm Modal ─── */}
       {showDeleteModal && tripToDelete && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1100,
-          background: 'rgba(0,0,0,0.85)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
-          animation: 'fadeIn 0.2s ease'
-        }}>
-          <div className="glass-panel" style={{
+        <ModalPortal>
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setShowDeleteModal(false); setTripToDelete(null); } }}>
+          <div className="glass-panel modal-fit" style={{
             width: '100%', maxWidth: '440px', padding: '32px', textAlign: 'center',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px',
             animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -320,18 +316,14 @@ export default function MyTrips({ onOpenCreateTrip, onSelectTrip }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* ─── Cancel Confirm Modal ─── */}
       {showCancelModal && tripToCancel && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1100,
-          background: 'rgba(0,0,0,0.85)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
-          animation: 'fadeIn 0.2s ease'
-        }}>
-          <div className="glass-panel" style={{
+        <ModalPortal>
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setShowCancelModal(false); setTripToCancel(null); } }}>
+          <div className="glass-panel modal-fit" style={{
             width: '100%', maxWidth: '440px', padding: '32px', textAlign: 'center',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px',
             animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -375,6 +367,7 @@ export default function MyTrips({ onOpenCreateTrip, onSelectTrip }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

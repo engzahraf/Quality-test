@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiRequest, BASE_URL, formatCurrency, getCurrencySymbol } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import confetti from 'canvas-confetti';
+import ModalPortal from '../components/ModalPortal';
 import {
   Calendar, MapPin, Plus, CheckCircle2, Circle, ArrowLeft,
   DollarSign, Wallet, Camera, BookOpen, Share2, Eye, Trash2, Edit3,
@@ -28,6 +29,9 @@ export default function TripDetailPage({ tripId, onBack }) {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: 'Food', expenseDate: '', notes: '' });
   const [expensesData, setExpensesData] = useState(null);
+  const [showDeleteExpenseModal, setShowDeleteExpenseModal] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  const [deletingExpense, setDeletingExpense] = useState(false);
 
   // Journal form state
   const [showJournalModal, setShowJournalModal] = useState(false);
@@ -68,6 +72,10 @@ export default function TripDetailPage({ tripId, onBack }) {
 
   // Upload Destination Image state
   const [uploadingDestImageId, setUploadingDestImageId] = useState(null);
+
+  // Cover photo update state
+  const [updatingCover, setUpdatingCover] = useState(false);
+  const [coverHover, setCoverHover] = useState(false);
 
   // Sharing state
   const [collaborators, setCollaborators] = useState([]);
@@ -218,6 +226,24 @@ export default function TripDetailPage({ tripId, onBack }) {
       fetchTrip();
     } catch (e) {
       addToast(e.message, 'error');
+    }
+  };
+
+  // Delete Expense
+  const handleDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+    setDeletingExpense(true);
+    try {
+      const res = await apiRequest(`/expenses/${expenseToDelete.id}`, { method: 'DELETE' });
+      addToast(res.message || 'Expense deleted successfully.', 'success');
+      setShowDeleteExpenseModal(false);
+      setExpenseToDelete(null);
+      fetchExpenses();
+      fetchTrip();
+    } catch (e) {
+      addToast(e.message || 'Failed to delete expense', 'error');
+    } finally {
+      setDeletingExpense(false);
     }
   };
 
@@ -453,6 +479,28 @@ export default function TripDetailPage({ tripId, onBack }) {
     }
   };
 
+  // Update Cover Photo
+  const handleCoverPhotoUpdate = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUpdatingCover(true);
+    try {
+      const data = new FormData();
+      data.append('cover', file);
+      const res = await apiRequest(`/trips/${tripId}`, {
+        method: 'PUT',
+        body: data
+      });
+      addToast(res.message || 'Cover photo updated! 🖼️', 'success');
+      fetchTrip();
+    } catch (err) {
+      addToast(err.message, 'error');
+    } finally {
+      setUpdatingCover(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="page-wrap" style={{ gap: '24px' }}>
       {/* Top Bar with Back Button & View Only Badge & Trip Actions */}
@@ -497,19 +545,114 @@ export default function TripDetailPage({ tripId, onBack }) {
       </div>
 
       {/* Hero Header Card */}
-      <div className="glass-panel" style={{
-        position: 'relative',
-        borderRadius: '24px',
-        overflow: 'hidden',
-        minHeight: '220px',
-        background: trip.cover_photo
-          ? `linear-gradient(rgba(11,15,25,0.7), rgba(11,15,25,0.85)), url(${BASE_URL}${trip.cover_photo}) center/cover no-repeat`
-          : 'var(--hero-fallback)',
-        padding: '36px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'flex-end'
-      }}>
+      <div
+        className="glass-panel"
+        onMouseEnter={() => !isReadOnly && setCoverHover(true)}
+        onMouseLeave={() => setCoverHover(false)}
+        style={{
+          position: 'relative',
+          borderRadius: '24px',
+          overflow: 'hidden',
+          minHeight: '220px',
+          background: trip.cover_photo
+            ? `linear-gradient(rgba(11,15,25,0.7), rgba(11,15,25,0.85)), url(${BASE_URL}${trip.cover_photo}) center/cover no-repeat`
+            : 'var(--hero-fallback)',
+          padding: '36px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end'
+        }}
+      >
+        {/* Cover Photo Change Overlay — owners only */}
+        {!isReadOnly && (
+          <label
+            htmlFor="cover-photo-input"
+            style={{
+              position: 'absolute',
+              top: 0, right: 0, bottom: 0, left: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              background: coverHover ? 'rgba(0,0,0,0.45)' : 'transparent',
+              transition: 'background 0.3s ease',
+              zIndex: 1,
+              borderRadius: '24px'
+            }}
+          >
+            {updatingCover ? (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+                background: 'rgba(0,0,0,0.65)', borderRadius: '16px', padding: '20px 28px'
+              }}>
+                <div className="spinner" style={{ width: 28, height: 28 }} />
+                <span style={{ color: '#fff', fontSize: '13px', fontWeight: 600 }}>Uploading...</span>
+              </div>
+            ) : coverHover ? (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+                background: 'rgba(0,0,0,0.65)', borderRadius: '16px', padding: '18px 28px',
+                backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.15)',
+                animation: 'modalIn 0.2s cubic-bezier(0.16,1,0.3,1)'
+              }}>
+                <Camera size={28} color="#fff" />
+                <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700, letterSpacing: '0.02em' }}>
+                  {trip.cover_photo ? 'Change Cover Photo' : 'Add Cover Photo'}
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>JPG, PNG or WebP</span>
+              </div>
+            ) : null}
+            <input
+              id="cover-photo-input"
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleCoverPhotoUpdate}
+              disabled={updatingCover}
+            />
+          </label>
+        )}
+
+        {/* Camera icon badge (always visible for owner when no cover) */}
+        {!isReadOnly && !trip.cover_photo && !coverHover && (
+          <label
+            htmlFor="cover-photo-input"
+            style={{
+              position: 'absolute', top: '16px', right: '16px',
+              background: 'rgba(99,102,241,0.85)', borderRadius: '10px',
+              padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px',
+              cursor: 'pointer', zIndex: 2, fontSize: '12px', fontWeight: 700, color: '#fff',
+              boxShadow: '0 4px 14px rgba(99,102,241,0.4)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              transition: 'transform 0.2s'
+            }}
+          >
+            <Camera size={14} /> Add Cover
+          </label>
+        )}
+
+        {/* Change icon (visible when cover exists, owner not hovering) */}
+        {!isReadOnly && trip.cover_photo && !coverHover && (
+          <label
+            htmlFor="cover-photo-input"
+            title="Change cover photo"
+            style={{
+              position: 'absolute', top: '16px', right: '16px',
+              background: 'rgba(0,0,0,0.55)', borderRadius: '50%',
+              width: '38px', height: '38px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', zIndex: 2, color: '#fff',
+              border: '1px solid rgba(255,255,255,0.18)',
+              backdropFilter: 'blur(4px)',
+              transition: 'background 0.2s, transform 0.2s'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.8)'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.55)'; e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            <Camera size={16} />
+          </label>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#60A5FA', fontSize: '14px', fontWeight: 600 }}>
           <MapPin size={16} /> {trip.country}
         </div>
@@ -1079,11 +1222,12 @@ export default function TripDetailPage({ tripId, onBack }) {
           </div>
 
           <div className="glass-panel" style={{ overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-glass)', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', fontWeight: 700, fontSize: '13px', color: 'var(--text-muted)' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-glass)', display: 'grid', gridTemplateColumns: isReadOnly ? '2fr 1fr 1fr 1fr' : '2fr 1fr 1fr 1fr 60px', fontWeight: 700, fontSize: '13px', color: 'var(--text-muted)', alignItems: 'center' }}>
               <span>Expense / Title</span>
               <span>Category</span>
               <span>Date</span>
               <span style={{ textAlign: 'right' }}>Amount</span>
+              {!isReadOnly && <span style={{ textAlign: 'center' }}>Action</span>}
             </div>
 
             {expensesData?.expenses?.length === 0 ? (
@@ -1096,7 +1240,7 @@ export default function TripDetailPage({ tripId, onBack }) {
                   padding: '16px 24px',
                   borderBottom: '1px solid rgba(255,255,255,0.04)',
                   display: 'grid',
-                  gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                  gridTemplateColumns: isReadOnly ? '2fr 1fr 1fr 1fr' : '2fr 1fr 1fr 1fr 60px',
                   fontSize: '14px',
                   alignItems: 'center'
                 }}>
@@ -1118,6 +1262,37 @@ export default function TripDetailPage({ tripId, onBack }) {
                   <span style={{ textAlign: 'right', fontWeight: 700, color: '#F43F5E' }}>
                     {formatCurrency(exp.amount, trip.currency)}
                   </span>
+                  {!isReadOnly && (
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <button
+                        onClick={() => { setExpenseToDelete(exp); setShowDeleteExpenseModal(true); }}
+                        title="Delete expense"
+                        style={{
+                          background: 'rgba(244, 63, 94, 0.1)',
+                          border: '1px solid rgba(244, 63, 94, 0.25)',
+                          color: '#F43F5E',
+                          borderRadius: '8px',
+                          width: '32px',
+                          height: '32px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = 'rgba(244, 63, 94, 0.22)';
+                          e.currentTarget.style.transform = 'scale(1.06)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'rgba(244, 63, 94, 0.1)';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -1317,49 +1492,52 @@ export default function TripDetailPage({ tripId, onBack }) {
 
       {/* Modal: Add Destination */}
       {showAddDestModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px' }}>Add Destination / Stop</h3>
-            <form onSubmit={handleAddDestination} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <input
-                type="text"
-                placeholder="Destination Name (e.g. Tokyo Tower)"
-                value={destForm.name}
-                onChange={e => setDestForm({ ...destForm, name: e.target.value })}
-                required
-                className="glass-input"
-              />
-              <input
-                type="text"
-                placeholder="Location / Address"
-                value={destForm.location}
-                onChange={e => setDestForm({ ...destForm, location: e.target.value })}
-                className="glass-input"
-              />
-              <textarea
-                placeholder="Description or notes..."
-                value={destForm.description}
-                onChange={e => setDestForm({ ...destForm, description: e.target.value })}
-                className="glass-input"
-                rows={3}
-              />
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="button" onClick={() => setShowAddDestModal(false)} className="glass-btn-secondary" style={{ flex: 1 }}>
-                  Cancel
-                </button>
-                <button type="submit" className="glass-btn-primary" style={{ flex: 1 }}>
-                  Add Stop
-                </button>
-              </div>
-            </form>
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px' }}>Add Destination / Stop</h3>
+              <form onSubmit={handleAddDestination} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <input
+                  type="text"
+                  placeholder="Destination Name (e.g. Tokyo Tower)"
+                  value={destForm.name}
+                  onChange={e => setDestForm({ ...destForm, name: e.target.value })}
+                  required
+                  className="glass-input"
+                />
+                <input
+                  type="text"
+                  placeholder="Location / Address"
+                  value={destForm.location}
+                  onChange={e => setDestForm({ ...destForm, location: e.target.value })}
+                  className="glass-input"
+                />
+                <textarea
+                  placeholder="Description or notes..."
+                  value={destForm.description}
+                  onChange={e => setDestForm({ ...destForm, description: e.target.value })}
+                  className="glass-input"
+                  rows={3}
+                />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" onClick={() => setShowAddDestModal(false)} className="glass-btn-secondary" style={{ flex: 1 }}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="glass-btn-primary" style={{ flex: 1 }}>
+                    Add Stop
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* Modal: Record Expense */}
       {showExpenseModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
             <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px' }}>Record Expense</h3>
             <form onSubmit={handleAddExpenseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <input
@@ -1422,65 +1600,69 @@ export default function TripDetailPage({ tripId, onBack }) {
                 rows={2}
               />
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="button" onClick={() => setShowExpenseModal(false)} className="glass-btn-secondary" style={{ flex: 1 }}>
-                  Cancel
-                </button>
-                <button type="submit" className="glass-btn-primary" style={{ flex: 1 }}>
-                  Save Expense
-                </button>
+                  <button type="button" onClick={() => setShowExpenseModal(false)} className="glass-btn-secondary" style={{ flex: 1 }}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="glass-btn-primary" style={{ flex: 1 }}>
+                    Save Expense
+                  </button>
               </div>
             </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* Modal: Add Journal Entry */}
       {showJournalModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '540px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px' }}>New Journal Entry ✍️</h3>
-            <form onSubmit={handleAddJournalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <input
-                type="text"
-                placeholder="Title (e.g. Walking through ancient bamboo groves)"
-                value={journalForm.title}
-                onChange={e => setJournalForm({ ...journalForm, title: e.target.value })}
-                required
-                className="glass-input"
-              />
-              <input
-                type="date"
-                value={journalForm.entryDate}
-                onChange={e => setJournalForm({ ...journalForm, entryDate: e.target.value })}
-                required
-                className="glass-input"
-                style={{ colorScheme: 'dark' }}
-              />
-              <textarea
-                placeholder="Pour your thoughts and memories here..."
-                value={journalForm.content}
-                onChange={e => setJournalForm({ ...journalForm, content: e.target.value })}
-                required
-                className="glass-input"
-                rows={6}
-              />
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="button" onClick={() => setShowJournalModal(false)} className="glass-btn-secondary" style={{ flex: 1 }}>
-                  Cancel
-                </button>
-                <button type="submit" className="glass-btn-primary" style={{ flex: 1 }}>
-                  Publish Entry
-                </button>
-              </div>
-            </form>
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '540px', padding: '32px' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px' }}>New Journal Entry ✍️</h3>
+              <form onSubmit={handleAddJournalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <input
+                  type="text"
+                  placeholder="Title (e.g. Walking through ancient bamboo groves)"
+                  value={journalForm.title}
+                  onChange={e => setJournalForm({ ...journalForm, title: e.target.value })}
+                  required
+                  className="glass-input"
+                />
+                <input
+                  type="date"
+                  value={journalForm.entryDate}
+                  onChange={e => setJournalForm({ ...journalForm, entryDate: e.target.value })}
+                  required
+                  className="glass-input"
+                  style={{ colorScheme: 'dark' }}
+                />
+                <textarea
+                  placeholder="Pour your thoughts and memories here..."
+                  value={journalForm.content}
+                  onChange={e => setJournalForm({ ...journalForm, content: e.target.value })}
+                  required
+                  className="glass-input"
+                  rows={6}
+                />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" onClick={() => setShowJournalModal(false)} className="glass-btn-secondary" style={{ flex: 1 }}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="glass-btn-primary" style={{ flex: 1 }}>
+                    Publish Entry
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* ═══ Modal: Edit Destination ═══ */}
       {showEditDestModal && editingDest && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', padding: '32px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', padding: '32px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60A5FA' }}>
                 <PenLine size={18} />
@@ -1539,42 +1721,83 @@ export default function TripDetailPage({ tripId, onBack }) {
                 <button type="submit" className="glass-btn-primary" style={{ flex: 1 }}>Save Changes</button>
               </div>
             </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* ═══ Modal: Delete Destination Confirm ═══ */}
       {showDeleteDestModal && destToDelete && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(244,63,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F43F5E', boxShadow: '0 0 20px rgba(244,63,94,0.25)' }}>
-              <Trash2 size={26} />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '20px', fontWeight: 800 }}>Delete Destination?</h3>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
-                Remove <strong>"{destToDelete.name}"</strong> from the itinerary? Its exploration checklist items will also be deleted.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-              <button onClick={() => { setShowDeleteDestModal(false); setDestToDelete(null); }} disabled={deletingDest} className="glass-btn-secondary" style={{ flex: 1, padding: '11px' }}>Cancel</button>
-              <button
-                onClick={handleDeleteDest}
-                disabled={deletingDest}
-                className="glass-btn-primary"
-                style={{ flex: 1, padding: '11px', fontWeight: 700, background: 'linear-gradient(135deg, #F43F5E, #E11D48)', boxShadow: '0 4px 14px rgba(244,63,94,0.35)' }}
-              >
-                {deletingDest ? 'Deleting...' : 'Yes, Delete'}
-              </button>
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(244,63,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F43F5E', boxShadow: '0 0 20px rgba(244,63,94,0.25)' }}>
+                <Trash2 size={26} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: 800 }}>Delete Destination?</h3>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
+                  Remove <strong>"{destToDelete.name}"</strong> from the itinerary? Its exploration checklist items will also be deleted.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                <button onClick={() => { setShowDeleteDestModal(false); setDestToDelete(null); }} disabled={deletingDest} className="glass-btn-secondary" style={{ flex: 1, padding: '11px' }}>Cancel</button>
+                <button
+                  onClick={handleDeleteDest}
+                  disabled={deletingDest}
+                  className="glass-btn-primary"
+                  style={{ flex: 1, padding: '11px', fontWeight: 700, background: 'linear-gradient(135deg, #F43F5E, #E11D48)', boxShadow: '0 4px 14px rgba(244,63,94,0.35)' }}
+                >
+                  {deletingDest ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
+      )}
+
+      {/* ═══ Modal: Delete Expense Confirm ═══ */}
+      {showDeleteExpenseModal && expenseToDelete && (
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(244,63,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F43F5E', boxShadow: '0 0 20px rgba(244,63,94,0.25)' }}>
+                <Trash2 size={26} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: 800 }}>Delete Expense?</h3>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
+                  Are you sure you want to remove <strong>"{expenseToDelete.title}"</strong> ({formatCurrency(expenseToDelete.amount, trip.currency)})? Your budget and spent totals will update automatically.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                <button
+                  onClick={() => { setShowDeleteExpenseModal(false); setExpenseToDelete(null); }}
+                  disabled={deletingExpense}
+                  className="glass-btn-secondary"
+                  style={{ flex: 1, padding: '11px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteExpense}
+                  disabled={deletingExpense}
+                  className="glass-btn-primary"
+                  style={{ flex: 1, padding: '11px', fontWeight: 700, background: 'linear-gradient(135deg, #F43F5E, #E11D48)', boxShadow: '0 4px 14px rgba(244,63,94,0.35)' }}
+                >
+                  {deletingExpense ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
 
       {/* ═══ Modal: Add Cost to Destination ═══ */}
       {showAddCostModal && costDest && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '440px', padding: '32px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '440px', padding: '32px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
                 <Coins size={18} />
@@ -1631,143 +1854,150 @@ export default function TripDetailPage({ tripId, onBack }) {
                 </button>
               </div>
             </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* ═══ Modal: Cancel Trip Confirm ═══ */}
       {showCancelTripModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '440px', padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B', boxShadow: '0 0 20px rgba(245,158,11,0.25)' }}>
-              <AlertTriangle size={28} />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '21px', fontWeight: 800 }}>Cancel This Trip?</h3>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
-                Are you sure you want to cancel <strong>"{trip.title}"</strong>? The trip data will be preserved but marked as cancelled.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-              <button onClick={() => setShowCancelTripModal(false)} disabled={cancellingTrip} className="glass-btn-secondary" style={{ flex: 1, padding: '11px' }}>Keep Trip</button>
-              <button
-                onClick={handleCancelTrip}
-                disabled={cancellingTrip}
-                className="glass-btn-primary"
-                style={{ flex: 1, padding: '11px', fontWeight: 700, background: 'linear-gradient(135deg, #F59E0B, #D97706)', boxShadow: '0 4px 14px rgba(245,158,11,0.35)' }}
-              >
-                {cancellingTrip ? 'Cancelling...' : 'Yes, Cancel'}
-              </button>
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '440px', padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B', boxShadow: '0 0 20px rgba(245,158,11,0.25)' }}>
+                <AlertTriangle size={28} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '21px', fontWeight: 800 }}>Cancel This Trip?</h3>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
+                  Are you sure you want to cancel <strong>"{trip.title}"</strong>? The trip data will be preserved but marked as cancelled.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                <button onClick={() => setShowCancelTripModal(false)} disabled={cancellingTrip} className="glass-btn-secondary" style={{ flex: 1, padding: '11px' }}>Keep Trip</button>
+                <button
+                  onClick={handleCancelTrip}
+                  disabled={cancellingTrip}
+                  className="glass-btn-primary"
+                  style={{ flex: 1, padding: '11px', fontWeight: 700, background: 'linear-gradient(135deg, #F59E0B, #D97706)', boxShadow: '0 4px 14px rgba(245,158,11,0.35)' }}
+                >
+                  {cancellingTrip ? 'Cancelling...' : 'Yes, Cancel'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* ═══ Modal: Delete Trip Confirm ═══ */}
       {showDeleteTripModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '440px', padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(244,63,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F43F5E', boxShadow: '0 0 20px rgba(244,63,94,0.25)' }}>
-              <Trash2 size={28} />
-            </div>
-            <div>
-              <h3 style={{ fontSize: '21px', fontWeight: 800 }}>Delete This Trip?</h3>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
-                Permanently delete <strong>"{trip.title}"</strong>? All destinations, expenses, photos, and journal entries will be lost.
-                <br /><strong style={{ color: '#F43F5E' }}>This cannot be undone.</strong>
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-              <button onClick={() => setShowDeleteTripModal(false)} disabled={deletingTrip} className="glass-btn-secondary" style={{ flex: 1, padding: '11px' }}>Cancel</button>
-              <button
-                onClick={handleDeleteTrip}
-                disabled={deletingTrip}
-                className="glass-btn-primary"
-                style={{ flex: 1, padding: '11px', fontWeight: 700, background: 'linear-gradient(135deg, #F43F5E, #E11D48)', boxShadow: '0 4px 14px rgba(244,63,94,0.35)' }}
-              >
-                {deletingTrip ? 'Deleting...' : 'Yes, Delete'}
-              </button>
+        <ModalPortal>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.2s ease' }}>
+            <div className="glass-panel" style={{ width: '100%', maxWidth: '440px', padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(244,63,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F43F5E', boxShadow: '0 0 20px rgba(244,63,94,0.25)' }}>
+                <Trash2 size={28} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '21px', fontWeight: 800 }}>Delete This Trip?</h3>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
+                  Permanently delete <strong>"{trip.title}"</strong>? All destinations, expenses, photos, and journal entries will be lost.
+                  <br /><strong style={{ color: '#F43F5E' }}>This cannot be undone.</strong>
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                <button onClick={() => setShowDeleteTripModal(false)} disabled={deletingTrip} className="glass-btn-secondary" style={{ flex: 1, padding: '11px' }}>Cancel</button>
+                <button
+                  onClick={handleDeleteTrip}
+                  disabled={deletingTrip}
+                  className="glass-btn-primary"
+                  style={{ flex: 1, padding: '11px', fontWeight: 700, background: 'linear-gradient(135deg, #F43F5E, #E11D48)', boxShadow: '0 4px 14px rgba(244,63,94,0.35)' }}
+                >
+                  {deletingTrip ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* Modal: Confirm Complete Trip */}
       {showCompleteModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 1000,
-          background: 'rgba(0,0,0,0.85)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          animation: 'fadeIn 0.2s ease'
-        }}>
-          <div className="glass-panel" style={{
-            width: '100%',
-            maxWidth: '460px',
-            padding: '32px',
-            textAlign: 'center',
+        <ModalPortal>
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            gap: '16px',
-            animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease'
           }}>
-            <div style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3))',
+            <div className="glass-panel" style={{
+              width: '100%',
+              maxWidth: '460px',
+              padding: '32px',
+              textAlign: 'center',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
-              color: '#10B981',
-              boxShadow: '0 0 24px rgba(16, 185, 129, 0.35)'
+              gap: '16px',
+              animation: 'modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
             }}>
-              <CheckCircle2 size={34} />
-            </div>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#10B981',
+                boxShadow: '0 0 24px rgba(16, 185, 129, 0.35)'
+              }}>
+                <CheckCircle2 size={34} />
+              </div>
 
-            <div>
-              <h3 style={{ fontSize: '22px', fontWeight: 800 }}>Complete This Journey?</h3>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
-                Are you sure you want to mark <strong>"{trip.title}"</strong> as completed? Your travel statistics will update and all memories will be archived as finished.
-              </p>
-            </div>
+              <div>
+                <h3 style={{ fontSize: '22px', fontWeight: 800 }}>Complete This Journey?</h3>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
+                  Are you sure you want to mark <strong>"{trip.title}"</strong> as completed? Your travel statistics will update and all memories will be archived as finished.
+                </p>
+              </div>
 
-            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setShowCompleteModal(false)}
-                disabled={completingTrip}
-                className="glass-btn-secondary"
-                style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: 600 }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCompleteTrip}
-                disabled={completingTrip}
-                className="glass-btn-primary"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
-                }}
-              >
-                {completingTrip ? 'Completing...' : 'Confirm'}
-              </button>
+              <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCompleteModal(false)}
+                  disabled={completingTrip}
+                  className="glass-btn-secondary"
+                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCompleteTrip}
+                  disabled={completingTrip}
+                  className="glass-btn-primary"
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
+                  }}
+                >
+                  {completingTrip ? 'Completing...' : 'Confirm'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const journeyController = require('../controllers/journeyController');
 const { authenticate } = require('../middlewares/authMiddleware');
-const upload = require('../middlewares/uploadMiddleware');
 
 router.use(authenticate);
 
@@ -12,7 +11,6 @@ router.post('/days/:dayId/destinations', journeyController.addDestination);
 
 // Destinations
 router.put('/destinations/:id', journeyController.updateDestination);
-router.post('/destinations/:id/image', upload.single('image'), journeyController.uploadDestinationImage);
 router.post('/destinations/:id/complete', journeyController.completeDestination);
 router.delete('/destinations/:id', journeyController.deleteDestination);
 

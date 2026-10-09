@@ -7,9 +7,8 @@ const uploadsDir = path.join(__dirname, '../../uploads');
 const avatarsDir = path.join(uploadsDir, 'avatars');
 const coversDir = path.join(uploadsDir, 'covers');
 const photosDir = path.join(uploadsDir, 'photos');
-const destinationsDir = path.join(uploadsDir, 'destinations');
 
-[uploadsDir, avatarsDir, coversDir, photosDir, destinationsDir].forEach(dir => {
+[uploadsDir, avatarsDir, coversDir, photosDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -22,8 +21,6 @@ const storage = multer.diskStorage({
       cb(null, avatarsDir);
     } else if (file.fieldname === 'cover') {
       cb(null, coversDir);
-    } else if (file.fieldname === 'destination' || file.fieldname === 'image') {
-      cb(null, destinationsDir);
     } else {
       cb(null, photosDir);
     }
