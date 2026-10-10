@@ -555,8 +555,8 @@ export default function TripDetailPage({ tripId, onBack }) {
           overflow: 'hidden',
           minHeight: '220px',
           background: trip.cover_photo
-            ? `linear-gradient(rgba(11,15,25,0.7), rgba(11,15,25,0.85)), url(${BASE_URL}${trip.cover_photo}) center/cover no-repeat`
-            : 'var(--hero-fallback)',
+  ? `linear-gradient(rgba(11,15,25,0.7), rgba(11,15,25,0.85)), url("${trip.cover_photo.startsWith('http') ? trip.cover_photo : `${BASE_URL}${trip.cover_photo}`}") center/cover no-repeat`
+  : 'var(--hero-fallback)',
           padding: '36px',
           display: 'flex',
           flexDirection: 'column',
@@ -1338,11 +1338,28 @@ export default function TripDetailPage({ tripId, onBack }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '18px' }}>
               {photosList.map(photo => (
                 <div key={photo.id} className="glass-panel" style={{ overflow: 'hidden', position: 'relative' }}>
-                  <img
-                    src={`${BASE_URL}${photo.image_url}`}
-                    alt={photo.caption || 'Trip Photo'}
-                    style={{ width: '100%', height: '220px', objectFit: 'cover' }}
-                  />
+                  
+<img
+  src={
+    photo.image_url?.startsWith('http')
+      ? photo.image_url
+      : `${BASE_URL}${photo.image_url}`
+  }
+  alt={photo.caption || 'Trip Photo'}
+  onClick={() => window.open(
+    photo.image_url?.startsWith('http')
+      ? photo.image_url
+      : `${BASE_URL}${photo.image_url}`,
+    '_blank'
+  )}
+  style={{
+    width: '100%',
+    height: '220px',
+    objectFit: 'cover',
+    cursor: 'pointer'
+  }}
+/>
+
                   {photo.caption && (
                     <div style={{ padding: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
                       {photo.caption}

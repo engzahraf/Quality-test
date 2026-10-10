@@ -11,6 +11,7 @@ import MemoriesGallery from './pages/MemoriesGallery';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/AdminDashboard';
 import CreateTripModal from './components/CreateTripModal';
+import VerifyEmail from './pages/VerifyEmail';
 
 export default function App() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -18,18 +19,24 @@ export default function App() {
   const [selectedTripId, setSelectedTripId] = useState(null);
   const [createTripOpen, setCreateTripOpen] = useState(false);
 
-  if (loading) {
-    return (
-      <div className="app-boot">
-        <div className="spinner" />
-        Initializing Travel Planner...
-      </div>
-    );
-  }
 
-  if (!isAuthenticated) {
-    return <AuthPage />;
-  }
+if (window.location.pathname === '/verify-email') {
+  return <VerifyEmail />;
+}
+
+if (loading) {
+  return (
+    <div className="app-boot">
+      <div className="spinner" />
+      Initializing Travel Planner...
+    </div>
+  );
+}
+
+if (!isAuthenticated) {
+  return <AuthPage />;
+}
+
 
   const handleSelectTrip = (tripId) => {
     setSelectedTripId(tripId);

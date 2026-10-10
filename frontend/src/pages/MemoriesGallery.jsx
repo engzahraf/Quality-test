@@ -79,11 +79,16 @@ export default function MemoriesGallery() {
               height: '300px'
             }}
           >
-            <img
-              src={`${BASE_URL}${photo.image_url}`}
-              alt={photo.caption || 'Memory'}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
+            
+<img
+  src={
+    photo.image_url?.startsWith('http')
+      ? photo.image_url
+      : `${BASE_URL}${photo.image_url}`
+  }
+  alt={photo.caption || 'Memory'}
+  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+/>
 
             {/* Gradient Overlay */}
             <div style={{

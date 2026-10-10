@@ -86,9 +86,11 @@ export default function Dashboard({ onOpenCreateTrip, onSelectTrip }) {
           {/* Cover Image banner */}
           <div style={{
             position: 'relative',
-            background: currentTrip.cover_photo
-              ? `url(${BASE_URL}${currentTrip.cover_photo}) center/cover no-repeat`
-              : 'var(--hero-fallback)',
+            
+background: currentTrip.cover_photo
+  ? `url("${currentTrip.cover_photo.startsWith('http') ? currentTrip.cover_photo : `${BASE_URL}${currentTrip.cover_photo}`}") center/cover no-repeat`
+  : 'var(--hero-fallback)',
+
             minHeight: '220px'
           }}>
             <div style={{
@@ -262,9 +264,9 @@ export default function Dashboard({ onOpenCreateTrip, onSelectTrip }) {
                 <div style={{
                   height: '160px',
                   position: 'relative',
-                  background: trip.cover_photo
-                    ? `url(${BASE_URL}${trip.cover_photo}) center/cover no-repeat`
-                    : 'var(--hero-fallback)'
+                  background: currentTrip.cover_photo
+  ? `url("${currentTrip.cover_photo.startsWith('http') ? currentTrip.cover_photo : `${BASE_URL}${currentTrip.cover_photo}`}") center/cover no-repeat`
+  : 'var(--hero-fallback)',
                 }}>
                   <div style={{ position: 'absolute', top: '12px', right: '12px' }}>
                     <span className="badge badge-upcoming">

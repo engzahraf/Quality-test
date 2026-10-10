@@ -146,9 +146,9 @@ export default function MyTrips({ onOpenCreateTrip, onSelectTrip }) {
               style={{
                 height: '170px',
                 position: 'relative',
-                background: trip.cover_photo
-                  ? `url(${BASE_URL}${trip.cover_photo}) center/cover no-repeat`
-                  : 'var(--hero-fallback)'
+               background: trip.cover_photo
+  ? `url("${trip.cover_photo.startsWith('http') ? trip.cover_photo : `${BASE_URL}${trip.cover_photo}`}") center/cover no-repeat`
+  : 'var(--hero-fallback)'
               }}
             >
               <div style={{ position: 'absolute', top: '12px', right: '12px' }}>
