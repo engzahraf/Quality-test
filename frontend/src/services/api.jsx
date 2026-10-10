@@ -1,5 +1,5 @@
-const API_BASE = 'http://87.106.100.187:7813/api';
-export const BASE_URL = 'http://87.106.100.187:7813';
+const API_BASE = '/api';
+export const BASE_URL = '';
 
 export const SUPPORTED_CURRENCIES = [
   { code: 'USD', symbol: '$', label: 'USD ($)' },
