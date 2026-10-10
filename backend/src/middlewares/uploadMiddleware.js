@@ -1,53 +1,32 @@
-const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
+const path = require('path');
 
-// Ensure upload folders exist
-const uploadsDir = path.join(__dirname, '../../uploads');
-const avatarsDir = path.join(uploadsDir, 'avatars');
-const coversDir = path.join(uploadsDir, 'covers');
-const photosDir = path.join(uploadsDir, 'photos');
+// Store uploaded images temporarily in memory.
+// Controllers will upload these buffers to Cloudinary.
+const storage = multer.memoryStorage();
 
-[uploadsDir, avatarsDir, coversDir, photosDir].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
-
-// Configure storage destination dynamically
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.fieldname === 'avatar') {
-      cb(null, avatarsDir);
-    } else if (file.fieldname === 'cover') {
-      cb(null, coversDir);
-    } else {
-      cb(null, photosDir);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-  }
-});
-
-// File filter for images only
+// Allow common image formats only.
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|webp|gif/;
-  const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
-  const mime = allowedTypes.test(file.mimetype);
-  const extValid = allowedTypes.test(ext);
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-  if (mime && extValid) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+
+  if (
+    allowedTypes.includes(file.mimetype) &&
+    allowedExtensions.includes(ext)
+  ) {
     return cb(null, true);
   }
-  cb(new Error('Only image files (jpeg, jpg, png, webp, gif) are allowed!'));
+
+  cb(new Error('Only JPG, PNG, WEBP, and GIF images are allowed.'));
 };
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10 MB maximum per image
+  },
   fileFilter
 });
 

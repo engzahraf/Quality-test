@@ -1,6 +1,9 @@
+
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const db = require('../config/db');
+const { sendVerificationEmail } = require('../services/emailService');
 
 // Helper to sign JWT
 const generateToken = (userId, role) => {
@@ -13,6 +16,8 @@ const generateToken = (userId, role) => {
 
 // POST /api/auth/register
 exports.register = async (req, res, next) => {
+  let connection;
+
   try {
     const { name, email, password, confirmPassword } = req.body;
 
@@ -37,54 +42,240 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    // Check duplicate email
-    const [existing] = await db.execute('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()]);
-    if (existing.length > 0) {
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanName = name.trim();
+
+    if (!cleanName) {
       return res.status(400).json({
+        success: false,
+        message: 'Name is required.'
+      });
+    }
+
+    const [existing] = await db.execute(
+      'SELECT id FROM users WHERE email = ?',
+      [cleanEmail]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({
         success: false,
         message: 'Email is already registered. Please login or use another email.'
       });
     }
 
-    // Generate unique username from email
-    const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() || 'traveler';
-    const uniqueUsername = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
+    const baseUsername =
+      cleanEmail.split('@')[0]
+        .replace(/[^a-zA-Z0-9_]/g, '')
+        .toLowerCase() || 'traveler';
+
+    const uniqueUsername =
+      `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const [result] = await db.execute(
-      `INSERT INTO users (username, name, email, password, role) VALUES (?, ?, ?, ?, 'USER')`,
-      [uniqueUsername, name.trim(), email.toLowerCase().trim(), hashedPassword]
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(verificationToken)
+      .digest('hex');
+
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [result] = await connection.execute(
+      `INSERT INTO users
+        (username, name, email, password, role,
+         email_verified, email_verification_token,
+         email_verification_expires)
+       VALUES (?, ?, ?, ?, 'USER', 0, ?, ?)`,
+      [
+        uniqueUsername,
+        cleanName,
+        cleanEmail,
+        hashedPassword,
+        tokenHash,
+        expires
+      ]
     );
 
     const newUserId = result.insertId;
-    const token = generateToken(newUserId, 'USER');
 
-    // Create a welcome notification
-    await db.execute(
-      `INSERT INTO notifications (user_id, title, message, type) 
+    await connection.execute(
+      `INSERT INTO notifications (user_id, title, message, type)
        VALUES (?, ?, ?, 'system')`,
       [
         newUserId,
         'Welcome to Travel Planner! 🎒',
-        'Start planning your first journey by clicking "+ Plan a Trip". Enjoy exploring the world!'
+        'Verify your email to activate your account and start planning your first journey!'
       ]
     );
 
-    res.status(201).json({
+    await sendVerificationEmail(
+      cleanEmail,
+      cleanName,
+      verificationToken
+    );
+
+    await connection.commit();
+
+    return res.status(201).json({
       success: true,
-      message: 'Account created successfully! Welcome aboard.',
+      message: 'Account created! Please check your email and verify your address before logging in.',
       data: {
-        token,
-        user: {
-          id: newUserId,
-          username: uniqueUsername,
-          name: name.trim(),
-          email: email.toLowerCase().trim(),
-          role: 'USER',
-          avatar: null
-        }
+        email: cleanEmail,
+        emailVerificationRequired: true
       }
+    });
+  } catch (err) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('Registration rollback failed:', rollbackError.message);
+      }
+    }
+
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        success: false,
+        message: 'This email or username is already registered. Please try again.'
+      });
+    }
+
+    next(err);
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+};
+
+// GET /api/auth/verify-email?token=...
+exports.verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid verification token is required.'
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const [users] = await db.execute(
+      `SELECT id, email_verification_expires
+       FROM users
+       WHERE email_verification_token = ?`,
+      [tokenHash]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or already-used verification link. Please request a new link.'
+      });
+    }
+
+    const user = users[0];
+
+   if (
+  !user.email_verification_expires ||
+  new Date(user.email_verification_expires.replace(' ', 'T') + 'Z') < new Date()
+) { 
+      return res.status(400).json({
+        success: false,
+        message: 'This verification link has expired. Please request a new one.'
+      });
+    }
+
+    await db.execute(
+      `UPDATE users
+       SET email_verified = 1,
+           email_verification_token = NULL,
+           email_verification_expires = NULL
+       WHERE id = ?`,
+      [user.id]
+    );
+
+    return res.json({
+      success: true,
+      message: 'Email verified successfully! You can now log in.'
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/auth/resend-verification
+exports.resendVerification = async (req, res, next) => {
+  try {
+    const cleanEmail = String(req.body.email || '')
+      .toLowerCase()
+      .trim();
+
+    if (!cleanEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required.'
+      });
+    }
+
+    const [users] = await db.execute(
+      `SELECT id, name, email, email_verified
+       FROM users
+       WHERE email = ?`,
+      [cleanEmail]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account was found with that email.'
+      });
+    }
+
+    const user = users[0];
+
+    if (user.email_verified) {
+      return res.json({
+        success: true,
+        message: 'This email address is already verified. You can log in.'
+      });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(verificationToken)
+      .digest('hex');
+
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
+
+    await db.execute(
+      `UPDATE users
+       SET email_verification_token = ?,
+           email_verification_expires = ?
+       WHERE id = ?`,
+      [tokenHash, expires, user.id]
+    );
+
+    await sendVerificationEmail(
+      user.email,
+      user.name,
+      verificationToken
+    );
+
+    return res.json({
+      success: true,
+      message: 'A fresh verification email has been sent.'
     });
   } catch (err) {
     next(err);
@@ -103,10 +294,14 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Allow login with either email or username (useful for admin username 'zahraf')
+    const loginValue = email.trim();
+
     const [users] = await db.execute(
-      'SELECT id, username, name, email, password, role, avatar, is_active FROM users WHERE email = ? OR username = ?',
-      [email.toLowerCase().trim(), email.trim()]
+      `SELECT id, username, name, email, password, role, avatar,
+              is_active, email_verified, email_verification_token
+       FROM users
+       WHERE email = ? OR username = ?`,
+      [loginValue.toLowerCase(), loginValue]
     );
 
     if (users.length === 0) {
@@ -126,6 +321,7 @@ exports.login = async (req, res, next) => {
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -133,9 +329,17 @@ exports.login = async (req, res, next) => {
       });
     }
 
+    if (!user.email_verified && user.email_verification_token) {
+      return res.status(403).json({
+        success: false,
+        emailVerificationRequired: true,
+        message: 'Please verify your email before logging in.'
+      });
+    }
+
     const token = generateToken(user.id, user.role);
 
-    res.json({
+    return res.json({
       success: true,
       message: `Welcome back, ${user.name}!`,
       data: {
@@ -157,7 +361,7 @@ exports.login = async (req, res, next) => {
 
 // GET /api/auth/me
 exports.getMe = async (req, res) => {
-  res.json({
+  return res.json({
     success: true,
     data: {
       user: req.user
@@ -169,38 +373,52 @@ exports.getMe = async (req, res) => {
 exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
+
     if (!email) {
-      return res.status(400).json({ success: false, message: 'Email is required.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required.'
+      });
     }
 
-    const [users] = await db.execute('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()]);
+    const cleanEmail = email.toLowerCase().trim();
+
+    const [users] = await db.execute(
+      'SELECT id FROM users WHERE email = ?',
+      [cleanEmail]
+    );
+
     if (users.length === 0) {
-      // Don't leak registered status for security, but return confirmation
       return res.json({
         success: true,
         message: 'If that email exists in our system, password reset instructions have been issued.'
       });
     }
 
-    // Generate random 6-digit reset code
-    const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = new Date(Date.now() + 3600000); // 1 hour
+    const resetToken = crypto.randomInt(100000, 1000000).toString();
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
 
     await db.execute(
-      'UPDATE users SET reset_password_token = ?, reset_password_expires = ? WHERE id = ?',
+      `UPDATE users
+       SET reset_password_token = ?, reset_password_expires = ?
+       WHERE id = ?`,
       [resetToken, expires, users[0].id]
     );
 
-    // Also add notification for test convenience
     await db.execute(
-      `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'system')`,
-      [users[0].id, 'Password Reset Code', `Your reset code is: ${resetToken}`, 'system']
+      `INSERT INTO notifications (user_id, title, message, type)
+       VALUES (?, ?, ?, 'system')`,
+      [
+        users[0].id,
+        'Password Reset Code',
+        `Your reset code is: ${resetToken}`
+      ]
     );
 
-    res.json({
+    return res.json({
       success: true,
-      message: 'Password reset code generated. In development, check notifications or use token.',
-      data: { resetToken } // sent for developer ease in university/local demo
+      message: 'Password reset code generated. In development, check notifications or use the token.',
+      data: { resetToken }
     });
   } catch (err) {
     next(err);
@@ -211,6 +429,7 @@ exports.forgotPassword = async (req, res, next) => {
 exports.resetPassword = async (req, res, next) => {
   try {
     const { email, resetToken, newPassword } = req.body;
+
     if (!email || !resetToken || !newPassword) {
       return res.status(400).json({
         success: false,
@@ -218,8 +437,17 @@ exports.resetPassword = async (req, res, next) => {
       });
     }
 
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long.'
+      });
+    }
+
     const [users] = await db.execute(
-      'SELECT id, reset_password_expires FROM users WHERE email = ? AND reset_password_token = ?',
+      `SELECT id, reset_password_expires
+       FROM users
+       WHERE email = ? AND reset_password_token = ?`,
       [email.toLowerCase().trim(), resetToken]
     );
 
@@ -231,7 +459,11 @@ exports.resetPassword = async (req, res, next) => {
     }
 
     const user = users[0];
-    if (new Date(user.reset_password_expires) < new Date()) {
+
+    if (
+      !user.reset_password_expires ||
+      new Date(user.reset_password_expires) < new Date()
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Reset code has expired. Please request a new one.'
@@ -239,12 +471,17 @@ exports.resetPassword = async (req, res, next) => {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
+
     await db.execute(
-      'UPDATE users SET password = ?, reset_password_token = NULL, reset_password_expires = NULL WHERE id = ?',
+      `UPDATE users
+       SET password = ?,
+           reset_password_token = NULL,
+           reset_password_expires = NULL
+       WHERE id = ?`,
       [hashedPassword, user.id]
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Password has been reset successfully. You can now log in.'
     });

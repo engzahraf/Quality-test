@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
+const uploadToCloudinary = require('../utils/cloudinaryUpload');
 
 // GET /api/users/profile
 exports.getProfile = async (req, res, next) => {
@@ -54,11 +55,23 @@ exports.updateProfile = async (req, res, next) => {
 exports.updateAvatar = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Please upload an image file.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload an image file.'
+      });
     }
 
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-    await db.execute('UPDATE users SET avatar = ? WHERE id = ?', [avatarUrl, req.user.id]);
+    const uploadedImage = await uploadToCloudinary(
+      req.file.buffer,
+      'avatars'
+    );
+
+    const avatarUrl = uploadedImage.url;
+
+    await db.execute(
+      'UPDATE users SET avatar = ? WHERE id = ?',
+      [avatarUrl, req.user.id]
+    );
 
     res.json({
       success: true,

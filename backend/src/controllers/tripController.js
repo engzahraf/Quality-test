@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const uploadToCloudinary = require('../utils/cloudinaryUpload');
 
 // Helper to calculate days between two dates inclusive
 const calculateDaysCount = (startStr, endStr) => {
@@ -221,9 +222,15 @@ exports.createTrip = async (req, res, next) => {
     }
 
     let coverPhotoUrl = null;
-    if (req.file) {
-      coverPhotoUrl = `/uploads/covers/${req.file.filename}`;
-    }
+
+if (req.file) {
+  const uploadedImage = await uploadToCloudinary(
+    req.file.buffer,
+    'covers'
+  );
+
+  coverPhotoUrl = uploadedImage.url;
+}
 
     const [tripResult] = await connection.execute(
       `INSERT INTO trips 
@@ -329,10 +336,16 @@ exports.updateTrip = async (req, res, next) => {
       });
     }
 
-    let coverPhoto = trip.cover_photo;
-    if (req.file) {
-      coverPhoto = `/uploads/covers/${req.file.filename}`;
-    }
+  let coverPhoto = trip.cover_photo;
+
+if (req.file) {
+  const uploadedImage = await uploadToCloudinary(
+    req.file.buffer,
+    'covers'
+  );
+
+  coverPhoto = uploadedImage.url;
+}
 
     // If dates changed, recalculate days
     const datesChanged = (startDate && startDate !== trip.start_date) || (endDate && endDate !== trip.end_date);

@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const uploadToCloudinary = require('../utils/cloudinaryUpload');
 
 // Helper to check trip access (owner or viewer)
 const checkTripAccess = async (tripId, userId) => {
@@ -107,22 +108,34 @@ exports.uploadPhotos = async (req, res, next) => {
     }
 
     const insertedPhotos = [];
-    for (const file of req.files) {
-      const imageUrl = `/uploads/photos/${file.filename}`;
-      const [result] = await db.execute(
-        `INSERT INTO photos (trip_id, day_id, destination_id, user_id, image_url, caption)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          tripId,
-          dayId || null,
-          destinationId || null,
-          req.user.id,
-          imageUrl,
-          caption ? caption.trim() : null
-        ]
-      );
-      insertedPhotos.push({ id: result.insertId, image_url: imageUrl, caption });
-    }
+
+for (const file of req.files) {
+  const uploadedImage = await uploadToCloudinary(
+    file.buffer,
+    'photos'
+  );
+
+  const imageUrl = uploadedImage.url;
+
+  const [result] = await db.execute(
+    `INSERT INTO photos (trip_id, day_id, destination_id, user_id, image_url, caption)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      tripId,
+      dayId || null,
+      destinationId || null,
+      req.user.id,
+      imageUrl,
+      caption ? caption.trim() : null
+    ]
+  );
+
+  insertedPhotos.push({
+    id: result.insertId,
+    image_url: imageUrl,
+    caption: caption || null
+  });
+}
 
     res.status(201).json({
       success: true,
