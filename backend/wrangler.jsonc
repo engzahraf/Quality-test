@@ -1,8 +1,0 @@
-
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "travel-planner-backend",
-  "main": "src/worker.js",
-  "compatibility_date": "2026-10-10",
-  "compatibility_flags": ["nodejs_compat"]
-}
