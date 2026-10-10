@@ -1,5 +1,5 @@
-const API_BASE = '/api';
-export const BASE_URL = '';
+const API_BASE = 'http://localhost:5000/api';
+export const BASE_URL = 'http://localhost:5000';
 
 export const SUPPORTED_CURRENCIES = [
   { code: 'USD', symbol: '$', label: 'USD ($)' },
