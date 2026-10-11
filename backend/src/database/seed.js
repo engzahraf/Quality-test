@@ -8,7 +8,7 @@ async function seedAdmin() {
     const rawPassword = 'AdminPassword123!';
 
     const [existing] = await db.execute(
-      'SELECT id, username, role FROM users WHERE username = ? OR role = "ADMIN"',
+      "SELECT id, username, role FROM users WHERE username = ? OR role = 'ADMIN'",
       [adminUsername]
     );
 
