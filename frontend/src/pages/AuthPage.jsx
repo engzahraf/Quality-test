@@ -3,11 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { apiRequest } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
-import { Compass, Mail, Lock, User, ArrowRight, Sun, Moon } from 'lucide-react';
+import { Compass, Mail, Lock, User, UserCheck, ArrowRight, Sun, Moon } from 'lucide-react';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
+    username: '',
     name: '',
     email: '',
     password: '',
@@ -38,9 +39,16 @@ export default function AuthPage() {
         login(res.data.token, res.data.user);
         addToast(res.message || 'Welcome back!');
       } else {
+        const payload = {
+          username: formData.username,
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword
+        };
         const res = await apiRequest('/auth/register', {
           method: 'POST',
-          body: JSON.stringify(formData)
+          body: JSON.stringify(payload)
         });
         login(res.data.token, res.data.user);
         addToast(res.message || 'Account created successfully!');
@@ -118,6 +126,25 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {!isLogin && (
             <div>
+              <label className="field-label">Username</label>
+              <div style={{ position: 'relative' }}>
+                <UserCheck size={18} style={{ position: 'absolute', left: '14px', top: '15px', color: 'var(--text-dim)' }} />
+                <input
+                  type="text"
+                  name="username"
+                  placeholder="e.g. alex_traveler"
+                  value={formData.username}
+                  onChange={handleChange}
+                  required
+                  className="glass-input"
+                  style={{ paddingLeft: '44px' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {!isLogin && (
+            <div>
               <label className="field-label">Full Name</label>
               <div style={{ position: 'relative' }}>
                 <User size={18} style={{ position: 'absolute', left: '14px', top: '15px', color: 'var(--text-dim)' }} />
@@ -137,14 +164,14 @@ export default function AuthPage() {
 
           <div>
             <label className="field-label">
-              {isLogin ? 'Email or Username' : 'Email Address'}
+              {isLogin ? 'Username or Email' : 'Email Address'}
             </label>
             <div style={{ position: 'relative' }}>
               <Mail size={18} style={{ position: 'absolute', left: '14px', top: '15px', color: 'var(--text-dim)' }} />
               <input
                 type={isLogin ? 'text' : 'email'}
                 name="email"
-                placeholder={isLogin ? 'you@travel.com or zahraf' : 'you@travel.com'}
+                placeholder={isLogin ? 'zahraf or you@travel.com' : 'you@travel.com'}
                 value={formData.email}
                 onChange={handleChange}
                 required

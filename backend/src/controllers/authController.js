@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../config/db');
-const { sendVerificationEmail } = require('../services/emailService');
 
 // Helper to sign JWT
 const generateToken = (userId, role) => {
@@ -19,12 +18,28 @@ exports.register = async (req, res, next) => {
   let connection;
 
   try {
-    const { name, email, password, confirmPassword } = req.body;
+    const { username, name, email, password, confirmPassword } = req.body;
 
-    if (!name || !email || !password) {
+    if (!username || !name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Name, email, and password are required.'
+        message: 'Username, name, email, and password are required.'
+      });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+
+    if (cleanUsername.length < 3 || cleanUsername.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username must be between 3 and 50 characters.'
+      });
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username can only contain letters, numbers, and underscores.'
       });
     }
 
@@ -42,7 +57,6 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
     const cleanName = name.trim();
 
     if (!cleanName) {
@@ -52,35 +66,44 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    const [existing] = await db.execute(
+    // Check for duplicate username
+    const [existingUsername] = await db.execute(
+      'SELECT id FROM users WHERE username = ?',
+      [cleanUsername]
+    );
+
+    if (existingUsername.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'This username is already taken. Please choose another.'
+      });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address.'
+      });
+    }
+
+    // Check for duplicate email
+    const [existingEmail] = await db.execute(
       'SELECT id FROM users WHERE email = ?',
       [cleanEmail]
     );
 
-    if (existing.length > 0) {
+    if (existingEmail.length > 0) {
       return res.status(409).json({
         success: false,
-        message: 'Email is already registered. Please login or use another email.'
+        message: 'This email is already registered. Please login or use another email.'
       });
     }
 
-    const baseUsername =
-      cleanEmail.split('@')[0]
-        .replace(/[^a-zA-Z0-9_]/g, '')
-        .toLowerCase() || 'traveler';
-
-    const uniqueUsername =
-      `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
-
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto
-      .createHash('sha256')
-      .update(verificationToken)
-      .digest('hex');
-
-    const expires = new Date(Date.now() + 30 * 60 * 1000);
 
     connection = await db.getConnection();
     await connection.beginTransaction();
@@ -90,14 +113,12 @@ exports.register = async (req, res, next) => {
         (username, name, email, password, role,
          email_verified, email_verification_token,
          email_verification_expires)
-       VALUES (?, ?, ?, ?, 'USER', 0, ?, ?)`,
+       VALUES (?, ?, ?, ?, 'USER', 1, NULL, NULL)`,
       [
-        uniqueUsername,
+        cleanUsername,
         cleanName,
         cleanEmail,
-        hashedPassword,
-        tokenHash,
-        expires
+        hashedPassword
       ]
     );
 
@@ -109,24 +130,28 @@ exports.register = async (req, res, next) => {
       [
         newUserId,
         'Welcome to Travel Planner! 🎒',
-        'Verify your email to activate your account and start planning your first journey!'
+        'Your account is ready! Start planning your first journey!'
       ]
-    );
-
-    await sendVerificationEmail(
-      cleanEmail,
-      cleanName,
-      verificationToken
     );
 
     await connection.commit();
 
+    // Auto-login: generate token and return user data
+    const token = generateToken(newUserId, 'USER');
+
     return res.status(201).json({
       success: true,
-      message: 'Account created! Please check your email and verify your address before logging in.',
+      message: 'Account created successfully! Welcome aboard!',
       data: {
-        email: cleanEmail,
-        emailVerificationRequired: true
+        token,
+        user: {
+          id: newUserId,
+          username: cleanUsername,
+          name: cleanName,
+          email: cleanEmail,
+          role: 'USER',
+          avatar: null
+        }
       }
     });
   } catch (err) {
@@ -141,7 +166,7 @@ exports.register = async (req, res, next) => {
     if (err.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({
         success: false,
-        message: 'This email or username is already registered. Please try again.'
+        message: 'This username or email is already registered. Please try again.'
       });
     }
 
@@ -329,13 +354,7 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    if (!user.email_verified && user.email_verification_token) {
-      return res.status(403).json({
-        success: false,
-        emailVerificationRequired: true,
-        message: 'Please verify your email before logging in.'
-      });
-    }
+    // Email verification check removed - users can log in immediately after registration
 
     const token = generateToken(user.id, user.role);
 
