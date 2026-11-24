@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "bdd": "cucumber-js --exit"
   },
   "keywords": [
     "travel-planner",
@@ -30,6 +31,7 @@
     "resend": "^6.32.1"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^13.3.0",
     "jest": "^30.5.2",
     "nodemon": "^3.1.9"
   }
