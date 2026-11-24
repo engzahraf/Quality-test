@@ -1,0 +1,82 @@
+name: QA Automated Testing & CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - qa-testing
+  pull_request:
+    branches:
+      - main
+      - qa-testing
+
+jobs:
+  qa-pipeline:
+    name: Backend & Frontend Quality Assurance
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # Step 1: Install Dependencies
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      # Step 2: Static Analysis & Code Quality
+      - name: Run Frontend Lint & Code Quality Checks
+        working-directory: ./frontend
+        run: npm run lint
+
+      # Step 3: Frontend Build Verification
+      - name: Verify Frontend Production Build
+        working-directory: ./frontend
+        run: npm run build
+
+      # Step 4: Backend Unit Tests with Coverage (Jest)
+      - name: Run Unit Tests with Code Coverage (Jest)
+        working-directory: ./backend
+        run: npm run test:coverage
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-pipeline-secret-key-12345
+
+      # Step 5: Backend Automated API Integration Tests (Supertest)
+      - name: Run Automated API Integration Tests (Supertest)
+        working-directory: ./backend
+        run: npm run test:api
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-pipeline-secret-key-12345
+
+      # Step 6: Behavior-Driven Development Tests (Cucumber)
+      - name: Run BDD Scenarios (Cucumber.js)
+        working-directory: ./backend
+        run: npm run bdd
+
+      # Step 7: Archive Test Coverage Artifacts
+      - name: Upload Test Coverage Artifacts
+        if: always() && matrix.node-version == '22.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: backend/coverage/
+          retention-days: 14

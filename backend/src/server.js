@@ -77,7 +77,11 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server and seed initial admin
-app.listen(PORT, async () => {
-  console.log(`🚀 Travel Planner Backend running on http://localhost:${PORT}`);
-  await seedAdmin();
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, async () => {
+    console.log(`🚀 Travel Planner Backend running on http://localhost:${PORT}`);
+    await seedAdmin();
+  });
+}
+
+module.exports = app;
