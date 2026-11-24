@@ -5,8 +5,8 @@ import confetti from 'canvas-confetti';
 import ModalPortal from '../components/ModalPortal';
 import {
   Calendar, MapPin, Plus, CheckCircle2, Circle, ArrowLeft,
-  DollarSign, Wallet, Camera, BookOpen, Share2, Eye, Trash2, Edit3,
-  Clock, ShieldAlert, Sparkles, Image as ImageIcon, Send,
+  Wallet, Camera, BookOpen, Share2, Eye, Trash2,
+  Sparkles, Image as ImageIcon,
   XCircle, AlertTriangle, PenLine, Coins
 } from 'lucide-react';
 
@@ -774,7 +774,6 @@ export default function TripDetailPage({ tripId, onBack }) {
                   day.destinations.map((dest, idx) => {
                     const isCompleted = dest.status === 'COMPLETED';
                     const isOngoing = dest.status === 'ONGOING';
-                    const isUpcoming = dest.status === 'UPCOMING';
 
                     return (
                       <div

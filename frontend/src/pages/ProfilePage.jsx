@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { apiRequest, BASE_URL } from '../services/api';
-import { User, Mail, Lock, Camera, Shield, Check } from 'lucide-react';
+import { Mail, Lock, Camera } from 'lucide-react';
 
 export default function ProfilePage() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser } = useAuth();
   const { addToast } = useToast();
 
   const [name, setName] = useState(user?.name || '');

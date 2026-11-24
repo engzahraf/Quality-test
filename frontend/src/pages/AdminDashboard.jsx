@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { Shield, Users, Mail, Compass, Camera, DollarSign, Send, Ban, CheckCircle } from 'lucide-react';
+import { Shield, Users, Compass, Camera, Send, CheckCircle } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { addToast } = useToast();

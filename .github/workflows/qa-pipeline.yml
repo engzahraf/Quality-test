@@ -60,8 +60,7 @@ jobs:
       # Step 2: Static Analysis & Code Quality
       - name: Run Frontend Lint & Code Quality Checks
         working-directory: ./frontend
-        run: npm run lint || true
-        continue-on-error: true
+        run: npm run lint
 
       # Step 3: Frontend Build Verification
       - name: Verify Frontend Production Build

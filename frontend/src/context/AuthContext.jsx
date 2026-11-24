@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
     if (token && cachedUser) {
       try {
         setUser(JSON.parse(cachedUser));
-      } catch (e) {
+      } catch {
         localStorage.removeItem('traval_user');
       }
     }

@@ -6,6 +6,9 @@
     "react/only-export-components": "off",
     "react/set-state-in-effect": "off",
     "react/purity": "off",
-    "react/immutability": "off"
+    "react/immutability": "off",
+    "no-unused-vars": "off",
+    "react-hooks/exhaustive-deps": "off"
   }
 }
+

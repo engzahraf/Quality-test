@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { apiRequest, SUPPORTED_CURRENCIES } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { X, Calendar, Globe, DollarSign, Users, Image as ImageIcon, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { X, Calendar, Globe, Users, Image as ImageIcon, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
 // ── Mini Calendar Preview Component ──────────────────────────────────────────
-function MiniCalendarPreview({ startDate, endDate, onClose }) {
+function MiniCalendarPreview({ startDate, endDate }) {
   const start = startDate ? new Date(startDate + 'T00:00:00') : null;
   const end = endDate ? new Date(endDate + 'T00:00:00') : null;
 

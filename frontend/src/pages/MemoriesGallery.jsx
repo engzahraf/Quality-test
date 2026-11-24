@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest, BASE_URL } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { Camera, Heart, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, Heart, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function MemoriesGallery() {
   const [photos, setPhotos] = useState([]);

@@ -3,7 +3,7 @@ import { apiRequest, BASE_URL, formatCurrency } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
   Compass, Plus, Calendar, MapPin, Wallet,
-  Camera, ArrowRight, TrendingUp, CheckCircle, Clock
+  Camera, ArrowRight, CheckCircle, Clock
 } from 'lucide-react';
 
 export default function Dashboard({ onOpenCreateTrip, onSelectTrip }) {

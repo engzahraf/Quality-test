@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest, BASE_URL } from '../services/api';
-import { Users, Eye, Calendar, MapPin, Compass } from 'lucide-react';
+import { Users, Eye, MapPin } from 'lucide-react';
 
 export default function SharedWithMe({ onSelectTrip }) {
   const [trips, setTrips] = useState([]);
