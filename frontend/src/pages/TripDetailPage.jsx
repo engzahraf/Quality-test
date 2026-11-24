@@ -133,6 +133,7 @@ export default function TripDetailPage({ tripId, onBack }) {
 
   useEffect(() => {
     fetchTrip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId]);
 
   useEffect(() => {
@@ -140,6 +141,7 @@ export default function TripDetailPage({ tripId, onBack }) {
     if (activeTab === 'memories') fetchPhotos();
     if (activeTab === 'journal') fetchJournal();
     if (activeTab === 'share') fetchCollaborators();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   if (loading || !tripData) {

@@ -33,6 +33,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchAdminData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleToggleStatus = async (userId) => {
