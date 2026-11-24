@@ -107,7 +107,7 @@ on:
 | **Stage 4** | **Production Bundle Verification** | `npm run build` (frontend) | Executes Vite bundle compilation; verifies chunk generation, asset minification, and CSS compilation (`dist/index.html`). |
 | **Stage 5** | **Backend Unit Tests with Coverage** | `npm run test:coverage` (backend) | Runs 53 Jest unit tests with `--detectOpenHandles --forceExit`; computes statement/branch coverage metrics; outputs LCOV reports. |
 | **Stage 6** | **Automated API Integration Tests** | `npm run test:api` (backend) | Dispatches HTTP requests through Express using Supertest; verifies API contract compliance (200, 400, 401, 403, 404). |
-| **Stage 7** | **Behavior-Driven Acceptance Testing** | `npm run bdd` (backend) | Executes Cucumber.js with explicit feature and step definition path bindings; verifies 47 steps pass. |
+| **Stage 7** | **Behavior-Driven Acceptance Testing** | `npm run bdd` (backend)<br/>*(Enforced on Node 22.x+)* | Executes Cucumber.js (`@cucumber/cucumber` v13 requirement: Node.js `22 \|\| 24 \|\| >=26`); conditionally executed on Node 22.x+ runners (`if: matrix.node-version != '20.x'`) verifying all 7 scenarios and 47 steps pass cleanly without halting 20.x pipeline matrices. |
 | **Stage 8** | **Test Artifact Archival** | `actions/upload-artifact@v4` | Archives the HTML/LCOV code coverage directory (`backend/coverage/`) tagged with matrix Node version (`backend-coverage-report-node-${{ matrix.node-version }}`). |
 
 ---

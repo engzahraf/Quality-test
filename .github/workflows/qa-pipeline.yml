@@ -76,6 +76,7 @@ jobs:
 
       # Step 6: Behavior-Driven Development Tests (Cucumber)
       - name: Run BDD Scenarios (Cucumber.js)
+        if: matrix.node-version != '20.x'
         working-directory: ./backend
         run: npm run bdd
 
