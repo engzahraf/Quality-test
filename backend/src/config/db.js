@@ -16,15 +16,17 @@ const pool = mysql.createPool({
   dateStrings: true
 });
 
-// Test connection on startup
-(async () => {
-  try {
-    const connection = await pool.getConnection();
-    console.log('✅ Connected to MySQL database:', process.env.DB_NAME);
-    connection.release();
-  } catch (err) {
-    console.error('❌ Failed to connect to MySQL database:', err.message);
-  }
-})();
+// Test connection on startup in non-test environments
+if (process.env.NODE_ENV !== 'test') {
+  (async () => {
+    try {
+      const connection = await pool.getConnection();
+      console.log('✅ Connected to MySQL database:', process.env.DB_NAME);
+      connection.release();
+    } catch (err) {
+      console.error('❌ Failed to connect to MySQL database:', err.message);
+    }
+  })();
+}
 
 module.exports = pool;

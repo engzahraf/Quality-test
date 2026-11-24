@@ -6,11 +6,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "test:api": "jest tests/api.integration.test.js",
-    "test:ci": "jest --coverage && cucumber-js --exit",
-    "bdd": "cucumber-js --exit"
+    "test": "jest --detectOpenHandles --forceExit",
+    "test:coverage": "jest --coverage --detectOpenHandles --forceExit",
+    "test:api": "jest tests/api.integration.test.js --detectOpenHandles --forceExit",
+    "test:ci": "jest --coverage --detectOpenHandles --forceExit && cucumber-js \"features/**/*.feature\" --require \"features/step_definitions/**/*.js\" --exit",
+    "bdd": "cucumber-js \"features/**/*.feature\" --require \"features/step_definitions/**/*.js\" --exit"
   },
   "keywords": [
     "travel-planner",

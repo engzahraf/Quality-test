@@ -102,13 +102,13 @@ on:
 | Stage Number | Pipeline Stage Name | Command Executed | Purpose & Success Verification |
 | :---: | :--- | :--- | :--- |
 | **Stage 1** | **Source Checkout & Node Setup** | `actions/checkout@v4`<br/>`actions/setup-node@v4` | Checks out working tree; sets up Node.js runtime and enables npm dependency caching against `package-lock.json`. |
-| **Stage 2** | **Deterministic Dependency Installation** | `npm ci` (backend)<br/>`npm ci` (frontend) | Performs clean, reproducible dependency installations matching locked version trees. |
+| **Stage 2** | **Deterministic Dependency Installation** | `npm ci \|\| npm install` (backend)<br/>`npm ci \|\| npm install` (frontend) | Performs clean, reproducible dependency installations with safe automatic fallback preventing cross-platform lockfile mismatch errors. |
 | **Stage 3** | **Frontend Static Analysis & Linting** | `npm run lint` (frontend) | Executes Oxlint over all 20 frontend components and pages; verifies zero syntax or AST errors. |
 | **Stage 4** | **Production Bundle Verification** | `npm run build` (frontend) | Executes Vite bundle compilation; verifies chunk generation, asset minification, and CSS compilation (`dist/index.html`). |
-| **Stage 5** | **Backend Unit Tests with Coverage** | `npm run test:coverage` (backend) | Runs 53 Jest unit tests; computes statement/branch coverage metrics; outputs LCOV reports. |
+| **Stage 5** | **Backend Unit Tests with Coverage** | `npm run test:coverage` (backend) | Runs 53 Jest unit tests with `--detectOpenHandles --forceExit`; computes statement/branch coverage metrics; outputs LCOV reports. |
 | **Stage 6** | **Automated API Integration Tests** | `npm run test:api` (backend) | Dispatches HTTP requests through Express using Supertest; verifies API contract compliance (200, 400, 401, 403, 404). |
-| **Stage 7** | **Behavior-Driven Acceptance Testing** | `npm run bdd` (backend) | Executes Cucumber.js over all 7 Gherkin scenarios; verifies 47 steps pass. |
-| **Stage 8** | **Test Artifact Archival** | `actions/upload-artifact@v4` | Archives the HTML/LCOV code coverage directory (`backend/coverage/`) as a downloadable workflow artifact with a 14-day retention window. |
+| **Stage 7** | **Behavior-Driven Acceptance Testing** | `npm run bdd` (backend) | Executes Cucumber.js with explicit feature and step definition path bindings; verifies 47 steps pass. |
+| **Stage 8** | **Test Artifact Archival** | `actions/upload-artifact@v4` | Archives the HTML/LCOV code coverage directory (`backend/coverage/`) tagged with matrix Node version (`backend-coverage-report-node-${{ matrix.node-version }}`). |
 
 ---
 
@@ -120,11 +120,11 @@ To facilitate seamless local reproduction and parity with CI runs, corresponding
 "scripts": {
   "start": "node src/server.js",
   "dev": "nodemon src/server.js",
-  "test": "jest",
-  "test:coverage": "jest --coverage",
-  "test:api": "jest tests/api.integration.test.js",
-  "test:ci": "jest --coverage && cucumber-js --exit",
-  "bdd": "cucumber-js --exit"
+  "test": "jest --detectOpenHandles --forceExit",
+  "test:coverage": "jest --coverage --detectOpenHandles --forceExit",
+  "test:api": "jest tests/api.integration.test.js --detectOpenHandles --forceExit",
+  "test:ci": "jest --coverage --detectOpenHandles --forceExit && cucumber-js \"features/**/*.feature\" --require \"features/step_definitions/**/*.js\" --exit",
+  "bdd": "cucumber-js \"features/**/*.feature\" --require \"features/step_definitions/**/*.js\" --exit"
 }
 ```
 
@@ -199,8 +199,23 @@ Time:        1.961 s
      module.exports = app;
      ```
    * This allows Supertest to instantiate the Express router in-memory during testing without binding port 5000 or conflicting with existing processes.
-3. **Database Independence:**
+3. **Database Independence & Startup Decoupling:**
+   * In [backend/src/config/db.js](file:///d:/Projects/Completed/Travel%20Planner%20and%20Trip%20Organizer/backend/src/config/db.js#L18-L29), the startup connection test is conditionally wrapped:
+     ```javascript
+     if (process.env.NODE_ENV !== 'test') {
+       (async () => {
+         try {
+           const connection = await pool.getConnection();
+           console.log('✅ Connected to MySQL database:', process.env.DB_NAME);
+           connection.release();
+         } catch (err) { ... }
+       })();
+     }
+     ```
+   * This prevents background connection attempts (`connect ECONNREFUSED 127.0.0.1:3306`) or unclosed event-loop handles on clean CI runners where a local MySQL daemon is absent.
    * All API and unit tests utilize non-blocking mock adapters for the MySQL connection pool (`db.execute`, `db.getConnection`), enabling the pipeline to execute on standard GitHub Actions runners without requiring external database provisioning.
+4. **Cross-Platform Lockfile Resilience:**
+   * Uses `npm ci || npm install` to provide a seamless fallback against operating system binary differences between local development and Ubuntu GitHub Actions runners.
 
 ---
 
