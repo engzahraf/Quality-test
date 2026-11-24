@@ -9,6 +9,8 @@
     "test": "jest --detectOpenHandles --forceExit --runInBand",
     "test:coverage": "jest --coverage --detectOpenHandles --forceExit --runInBand",
     "test:api": "jest tests/api.integration.test.js --detectOpenHandles --forceExit --runInBand",
+    "test:perf": "node tests/performance.benchmark.js",
+    "test:sec": "jest tests/security.audit.test.js --detectOpenHandles --forceExit --runInBand",
     "test:ci": "jest --coverage --detectOpenHandles --forceExit --runInBand && cucumber-js --exit",
     "bdd": "cucumber-js --exit"
   },
