@@ -19,12 +19,16 @@ CREATE TABLE IF NOT EXISTS `users` (
   `role` ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER',
   `avatar` VARCHAR(255) DEFAULT NULL,
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `email_verified` TINYINT(1) NOT NULL DEFAULT 1,
+  `email_verification_token` VARCHAR(255) DEFAULT NULL,
+  `email_verification_expires` DATETIME DEFAULT NULL,
   `reset_password_token` VARCHAR(255) DEFAULT NULL,
   `reset_password_expires` DATETIME DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_users_email` (`email`),
-  INDEX `idx_users_role` (`role`)
+  INDEX `idx_users_role` (`role`),
+  INDEX `idx_users_email_verification_token` (`email_verification_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Trips Table
