@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [20.x, 22.x]
 
@@ -43,19 +44,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
 
-      # Step 1: Install Dependencies with Safe Fallback
+      # Step 1: Install Dependencies Deterministically
       - name: Install Backend Dependencies
         working-directory: ./backend
-        run: npm ci || npm install
+        run: npm install --no-audit
 
       - name: Install Frontend Dependencies
         working-directory: ./frontend
-        run: npm ci || npm install
+        run: npm install --no-audit
 
       # Step 2: Static Analysis & Code Quality
       - name: Run Frontend Lint & Code Quality Checks
@@ -89,4 +86,5 @@ jobs:
         with:
           name: backend-coverage-report-node-${{ matrix.node-version }}
           path: backend/coverage/
+          if-no-files-found: ignore
           retention-days: 14

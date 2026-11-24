@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../config/db');
+const { sendVerificationEmail } = require('../services/emailService');
 
 // Helper to sign JWT
 const generateToken = (userId, role) => {

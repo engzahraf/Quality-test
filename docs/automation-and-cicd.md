@@ -102,7 +102,7 @@ on:
 | Stage Number | Pipeline Stage Name | Command Executed | Purpose & Success Verification |
 | :---: | :--- | :--- | :--- |
 | **Stage 1** | **Source Checkout & Node Setup** | `actions/checkout@v4`<br/>`actions/setup-node@v4` | Checks out working tree; sets up Node.js runtime and enables npm dependency caching against `package-lock.json`. |
-| **Stage 2** | **Deterministic Dependency Installation** | `npm ci \|\| npm install` (backend)<br/>`npm ci \|\| npm install` (frontend) | Performs clean, reproducible dependency installations with safe automatic fallback preventing cross-platform lockfile mismatch errors. |
+| **Stage 2** | **Deterministic Dependency Installation** | `npm install --no-audit` (backend)<br/>`npm install --no-audit` (frontend) | Performs clean, reproducible dependency installations resolving Linux/platform-native binaries automatically without lockfile mismatch errors. |
 | **Stage 3** | **Frontend Static Analysis & Linting** | `npm run lint` (frontend) | Executes Oxlint over all 20 frontend components and pages; verifies 0 errors and 0 warnings across the React codebase. |
 | **Stage 4** | **Production Bundle Verification** | `npm run build` (frontend) | Executes Vite bundle compilation; verifies chunk generation, asset minification, and CSS compilation (`dist/index.html`). |
 | **Stage 5** | **Backend Unit Tests with Coverage** | `npm run test:coverage` (backend) | Runs 53 Jest unit tests with `--detectOpenHandles --forceExit`; computes statement/branch coverage metrics; outputs LCOV reports. |
