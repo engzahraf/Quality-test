@@ -110,11 +110,14 @@ describe('Trip Controller Unit Tests (White-Box)', () => {
       expect(mockConnection.release).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(201);
 
+      // Verify parameters passed to INSERT INTO trips
+      const insertTripParams = mockConnection.execute.mock.calls[0][1];
+      expect(insertTripParams[9]).toBe('UPCOMING'); // initialStatus
+      expect(insertTripParams[8]).toBeNull(); // coverPhotoUrl
+
       const responseJson = res.json.mock.calls[0][0];
       expect(responseJson.success).toBe(true);
-      expect(responseJson.data.status).toBe('UPCOMING');
       expect(responseJson.data.daysCount).toBe(5);
-      expect(responseJson.data.coverPhoto).toBeNull();
     });
 
     test('Path 5: should create trip with "ONGOING" status when dates span today', async () => {
@@ -130,7 +133,8 @@ describe('Trip Controller Unit Tests (White-Box)', () => {
 
       expect(mockConnection.commit).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json.mock.calls[0][0].data.status).toBe('ONGOING');
+      const insertTripParams = mockConnection.execute.mock.calls[0][1];
+      expect(insertTripParams[9]).toBe('ONGOING');
       expect(res.json.mock.calls[0][0].data.daysCount).toBe(1);
     });
 
@@ -146,7 +150,8 @@ describe('Trip Controller Unit Tests (White-Box)', () => {
 
       expect(mockConnection.commit).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json.mock.calls[0][0].data.status).toBe('COMPLETED');
+      const insertTripParams = mockConnection.execute.mock.calls[0][1];
+      expect(insertTripParams[9]).toBe('COMPLETED');
       expect(res.json.mock.calls[0][0].data.daysCount).toBe(4);
     });
 
@@ -165,7 +170,8 @@ describe('Trip Controller Unit Tests (White-Box)', () => {
 
       expect(uploadToCloudinary).toHaveBeenCalledWith(expect.any(Buffer), 'covers');
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json.mock.calls[0][0].data.coverPhoto).toBe('https://cloudinary.com/test-cover.jpg');
+      const insertTripParams = mockConnection.execute.mock.calls[0][1];
+      expect(insertTripParams[8]).toBe('https://cloudinary.com/test-cover.jpg');
     });
 
     test('Path 8: should catch database execution error, rollback, and call next(err)', async () => {
